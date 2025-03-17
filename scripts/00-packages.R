@@ -8,3 +8,4 @@ install.packages(c("sf", "stars", "tidyverse",
                    "rnaturalearth", "rnaturalearthhires",
                    "rnaturalearthdata", "leaflet", "ggnewscale",
                    "patchwork", "mapedit"))
+

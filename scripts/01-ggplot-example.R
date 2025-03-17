@@ -22,7 +22,7 @@ ggplot() +
 # instead of a legend, annotate the map with species names as labels
 species.labels <- data.frame(species = c("Adelie", "Chinstrap", "Gentoo"),
                              x = c(35, 56.5, 54.5),
-                             y = c(20, 18.7, 15))
+                             y = c(15.4, 18.7, 15))
 
 ggplot() +
   geom_point(data = penguins,
@@ -47,7 +47,6 @@ ggplot() +
         axis.text = element_text(size = 16, color = "black"))
 
 # add phylopic
-
 ggplot() +
   geom_point(data = penguins,
              aes(x = bill_length_mm, bill_depth_mm, color = species),
@@ -67,11 +66,15 @@ ggplot() +
   # use theme to customize plot appearance
   theme_classic() +
   theme(legend.position = "none",
-        axis.title = element_text(size = 18, color = "black"),
-        axis.text = element_text(size = 16, color = "black")) +
+        axis.title = element_text(size = 16, color = "black"),
+        axis.text = element_text(size = 14, color = "black")) +
   
-  # add silhouette of gentoo penguin
-  add_phylopic(name = "Pygoscelis papua", x = 58.6, y = 20.5,
-               ysize = 2)
-ggsave("figures/penguin-phylopic.PNG", width = 17, height = 15, units = "cm",
+  # add penguin silhouettes
+  add_phylopic(name = "Pygoscelis adeliae", x = 35, y = 14, ysize = 2,
+               fill = "#ff6700") +
+  add_phylopic(name = "Pygoscelis antarcticus", x = 58.6, y = 20.5, ysize = 2,
+               fill = "#c15ccb") +
+  add_phylopic(name = "Pygoscelis papua", x = 58, y = 14,
+               ysize = 2, fill = "#057076")
+ggsave("figures/penguin-phylopic.PNG", width = 17, height = 12, units = "cm",
        dpi = 1600, background = "white")
