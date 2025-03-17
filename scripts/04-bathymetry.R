@@ -38,7 +38,7 @@ ggplot() +
   theme_bw() +
   labs(fill = "Depth")
  
-# plot depth contours # should bc.coast be on top and just highly transparent
+# plot depth contours
 ggplot() +
   geom_spatraster_contour(data = gebco.ocean, maxcell = 5e+15) +
   geom_sf(data = bc.coast, fill = "grey70", colour = "black") +

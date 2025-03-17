@@ -129,9 +129,11 @@ study.area + inset_element(inset,
                            align_to = "panel")
 # when left = 0, top = 1: there is a slight gap between the left and top
 # edge of the inset and the larger map behind it. Setting left = -0.01 and
-# top = 1.01 aligns edges nicely.
+# top = 1.01 aligns edges nicely (takes trial and error, view the saved version
+# when trying to figure out appropriate position)
 
 # leaving it as left = 0 and top = 1 is perfectly acceptable, as well! 
+
 
 ggsave("figures/study-area-with-inset.PNG", 
        width = 17, height = 17, units = "cm",
@@ -207,7 +209,7 @@ rockfish <- ggplot() +
   # land (likely GPS or data upload errors)
   geom_point(data = iNaturalist.rockfish,
              aes(x = longitude, y = latitude),
-             colour = "steelblue3", size = 2, alpha = 0.7) +
+             colour = "dodgerblue", size = 2, alpha = 0.7) +
 
   geom_sf(data = bc.coast) +
   
@@ -245,17 +247,26 @@ rockfish +
            size = 4, colour = "black") +
   
   # add legend for RCAs (manually since only one level)
+  annotate(geom = "point", size = 2,
+           x = -123.85, y = 48.06, colour = "dodgerblue", alpha = 0.7) +
+  annotate(geom = "text",
+           x = -123.76, y = 48.06,
+           label = "iNaturalist rockfish observations", 
+           size = 4, colour = "black", hjust = 0) +
+  
   annotate(geom = "rect",
            xmin = -123.9, xmax = -123.8, ymin = 48.01, ymax = 48.03,
            colour = "firebrick1", fill = "firebrick1", alpha = 0.4) +
   annotate(geom = "text",
-           x = -123.55, y = 48.023,
+           x = -123.76, y = 48.023,
            label = "Rockfish conservation areas", 
-           size = 4, colour = "black") +
+           size = 4, colour = "black", hjust = 0) +
   
   inset_element(inset,
                 left = -0.01, bottom = 0.7, right = 0.3, top = 1,
                 align_to = "panel")
+ggsave("figures/rockfish.PNG", width = 17, height = 15, units = "cm")
+
 
 # alternative: add depth contours
 ggplot() +

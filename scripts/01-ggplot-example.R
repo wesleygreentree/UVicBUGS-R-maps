@@ -66,8 +66,8 @@ ggplot() +
   # use theme to customize plot appearance
   theme_classic() +
   theme(legend.position = "none",
-        axis.title = element_text(size = 16, color = "black"),
-        axis.text = element_text(size = 14, color = "black")) +
+        axis.title = element_text(size = 18, color = "black"),
+        axis.text = element_text(size = 16, color = "black")) +
   
   # add penguin silhouettes
   add_phylopic(name = "Pygoscelis adeliae", x = 35, y = 14, ysize = 2,
@@ -76,5 +76,5 @@ ggplot() +
                fill = "#c15ccb") +
   add_phylopic(name = "Pygoscelis papua", x = 58, y = 14,
                ysize = 2, fill = "#057076")
-ggsave("figures/penguin-phylopic.PNG", width = 17, height = 12, units = "cm",
+ggsave("figures/penguin-phylopic.PNG", width = 17, height = 15, units = "cm",
        dpi = 1600, background = "white")
