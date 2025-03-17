@@ -3,7 +3,7 @@
 Workshop for UVic Biology Undergraduate Society
 Victoria, BC
 
-March 17, 2025
+March 18, 2025
 
 Wesley Greentree, wgreentree@outlook.com
 
