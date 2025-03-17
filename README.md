@@ -16,7 +16,7 @@ Thank you for attending this workshop on using the R programming language to mak
 Please download this Github repository. If you are new to GitHub,
 click the green code button, and select "Download ZIP".
 
-![github](figures/screenshots-for-readme/github-screenshot.png)
+![github](figures/screenshots-for-readme/github-screenshot-updated.png)
 
 Unzip the folder and move it to a desired location on your computer.
 
