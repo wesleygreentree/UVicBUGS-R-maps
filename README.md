@@ -1,9 +1,9 @@
 # Making maps in R: applications to ecology and evolution
 
-Workshop at 2024 meeting of the Canadian Society for Ecology and Evolution
-Vancouver, BC.
+Workshop for UVic Biology Undergraduate Society
+Victoria, BC
 
-26 May 2024
+March 17, 2025
 
 Wesley Greentree, wgreentree@outlook.com
 
@@ -20,11 +20,10 @@ click the green code button, and select "Download ZIP".
 
 Unzip the folder and move it to a desired location on your computer.
 
-**Please run [scripts/00-packages.R](https://github.com/wesleygreentree/CSEE2024-R-maps/blob/main/scripts/00-packages.R) before the workshop.** This scripts installs the necessary R packages for the workshop. 
+**Please run [scripts/00-packages.R](https://github.com/wesleygreentree/UVicBUGS-R-maps/blob/main/scripts/00-packages.R) before the workshop.** This scripts installs the necessary R packages for the workshop. 
 If you haven't run an R script before, you can highlight all code in this script and select Code > Run Selected Line(s) in RStudio.
 
 
 **Technical details**
 
 Using R 4.4.0 with packages installed May 2024. 
-The leaflet package has not been updated to R 4.4.0, so version 4.3.1 was used for [scripts/07-interactive-maps.R](https://github.com/wesleygreentree/CSEE2024-R-maps/blob/main/scripts/07-interactive-maps.R).
