@@ -5,7 +5,10 @@
 install.packages(c("sf", "stars", "tidyverse",
                    "basemaps", "rphylopic", "gganimate",
                    "terra", "tidyterra", "palmerpenguins",
-                   "rnaturalearth", "rnaturalearthhires",
-                   "rnaturalearthdata", "leaflet", "ggnewscale",
-                   "patchwork", "mapedit"))
+                   "rnaturalearth", "rnaturalearthdata", "leaflet", "ggnewscale",
+                   "patchwork", "mapedit", "ggspatial"))
+
+install.packages("rnaturalearthhires",
+  repos = "https://ropensci.r-universe.dev",
+  type = "source") # high resolution basemaps for RNaturalEarth
 
