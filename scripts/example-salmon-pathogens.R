@@ -1,4 +1,7 @@
+# Example of how to conduct a spatial analysis, using a dataset of pathogen 
+# infections of Chinook salmon in British Columbia
 
+# References: 
 
 ## 1. Load packages and data ----
 library(tidyverse); theme_set(theme_bw())
@@ -26,7 +29,6 @@ ggplot() +
   coord_sf(xlim = c(-137, -122), ylim = c(47, 58))
 
 # what is the temporal scope
-
 table(pathogens$Year)
 
 ggplot() +
@@ -48,7 +50,60 @@ ggplot() +
   coord_sf(xlim = c(-137, -122), ylim = c(47, 58)) +
   facet_wrap(~ Stock_Region) # means let's make a map for each population
 
-# should make a grid for a sample size map
+# Look at sample size distribution
+# we will transform the coordinates from longitude/latitude to UTM zone 10
+pathogens.wide.LL <- st_as_sf(pathogens, coords = c("Longitude", "Latitude"),
+                              crs = st_crs(4326), remove = FALSE)
+pathogens.wide.UTM <- st_transform(pathogens.wide.LL,
+                                   crs = st_crs(32610)) # transform to UTM zone 10
+st_crs(pathogens.wide.UTM)
+
+# square grid with 30 km wide grid cells
+grid <- st_make_grid(pathogens.wide.UTM, cellsize = 30000,
+                     crs = st_crs(32610), what = "polygons")
+bc.coast.UTM <- st_transform(bc.coast, crs = st_crs(32610))
+
+ggplot() +
+  geom_sf(data = bc.coast.UTM) +
+  geom_sf(data = pathogens.wide.UTM) +
+  geom_sf(data = grid, fill = NA) +
+  coord_sf(datum = 4326, crs = 32610,
+           xlim = c(-400000, 600000), ylim = c(5200000, 6600000))
+
+# make a focused map of Vancouver Island
+ggplot() +
+  geom_sf(data = pathogens.wide.UTM, aes(colour = Ec_Wc_VanIsle)) 
+
+van.island.UTM <- subset(pathogens.wide.UTM, Ec_Wc_VanIsle %in% c("ECVI", "WCVI") &
+                                          Latitude < 51)
+ggplot() +
+  geom_sf(data = van.island.UTM, aes(colour = Ec_Wc_VanIsle)) 
+
+# make a hexagonal grid # 10km grid spacing
+hexagon.grid <- st_make_grid(van.island.UTM, cellsize = 10000,
+                             crs = st_crs(32610), square = FALSE, what = "polygons")
+class(hexagon.grid)
+hexagon.grid <- st_as_sf(hexagon.grid)
+hexagon.grid$grid_id <- seq(1, nrow(hexagon.grid))
+
+ggplot() +
+  geom_sf(data = van.island.UTM, aes(colour = Ec_Wc_VanIsle)) +
+  geom_sf(data = hexagon.grid, fill = NA)
+
+van.island.UTM <- st_join(x = van.island.UTM, y = hexagon.grid)
+
+grid.sample.size <- data.frame(table(van.island.UTM$grid_id))
+names(grid.sample.size) <- c("grid_id", "n")
+grid.sample.size <- merge(x = hexagon.grid, grid.sample.size, by = "grid_id",
+                           all.x = FALSE, all.y = FALSE)
+
+ggplot() +
+  geom_sf(data = bc.coast.UTM) +
+  geom_sf(data = grid.sample.size, aes(fill = n)) +
+  scale_fill_viridis_b(breaks = c(1, 10, 25, 50, 100, 802)) +
+  coord_sf(datum = 4326, crs = 32610,
+           xlim = c(50000, 530000), ylim = c(5300000, 5690000)) +
+  labs(fill = "Sample\nsize")
 
 ## 2B. Look at the pathogens data ----
 
@@ -58,33 +113,38 @@ names(pathogens)[40:80] # 41, see table 1 in Bass et al. 2023 for more info
 # spatial distribution of pathogens
 # for ggplot, we need to convert the pathogens dataframe from "wide" to "long"
 
-pathogens.long <- pathogens %>% 
+van.island.long <- pathogens %>% 
+  subset(Ec_Wc_VanIsle %in% c("ECVI", "WCVI") & Latitude < 51) %>% 
   select(Fish, Species, Year, Stock_Region, Longitude, Latitude,
          arena1:vi_sal) %>%  # select key variables
   melt(., id.vars = c("Fish", "Species", "Year", "Stock_Region", "Longitude",
                       "Latitude"))
-nrow(pathogens.long) # 41 * 5719 = 234479, checks out!
-names(pathogens.long)[7:8] <- c("pathogen", "average_copy_number")
+nrow(van.island.long) # 41 * 5060 = 207460, checks out!
+names(van.island.long)[7:8] <- c("pathogen", "average_copy_number")
 
 # since there are 41 pathogens, we will split this figure into two by using
 # ggforce::facet_wrap_paginate()
-str(pathogens.long)
+str(van.island.long)
 
-pathogens.long$average_copy_number[pathogens.long$average_copy_number %in% c("NA", "FALSE")] <- NA
-pathogens.long$average_copy_number <- as.numeric(pathogens.long$average_copy_number)
-pathogens.long <- subset(pathogens.long, !is.na(average_copy_number))
+van.island.long$average_copy_number[van.island.long$average_copy_number %in% c("NA", "FALSE")] <- NA
+van.island.long$average_copy_number <- as.numeric(van.island.long$average_copy_number)
+van.island.long <- subset(van.island.long, !is.na(average_copy_number))
 
-pathogens.long$average_copy_number[pathogens.long$average_copy_number < 0] <- 0
+van.island.long$average_copy_number[van.island.long$average_copy_number < 0] <- 0
+van.island.long.non.zero <- subset(van.island.long, average_copy_number > 0)
 
-pathogens.long.non.zero <- subset(pathogens.long, average_copy_number > 0)
-
+# plot distribution of pathogens
+# using latitude/longitude (instead of UTM zone 10 coordiantes) since this is just
+# a simple visualization
 ggplot() +
   geom_sf(data = bc.coast) +
   # plot only non-zeros currently
-  geom_point(data = pathogens.long.non.zero,
+  # log-transform to improve visualization
+  geom_point(data = van.island.long.non.zero,
              aes(x = Longitude, y = Latitude, size = average_copy_number),
              alpha = 0.8) +
-  coord_sf(xlim = c(-137, -122), ylim = c(47, 58)) +
+  scale_size_continuous(breaks = c(1, 1000, 1000000, 1e+8)) +
+  coord_sf(xlim = c(-130.5, -122), ylim = c(47.6, 51.4)) +
   facet_wrap_paginate(~ pathogen, nrow = 3, ncol = 3, page = 1) +
   theme(legend.position = "bottom")
 # change page to look at all the different pathogens
@@ -97,7 +157,7 @@ pfma <- readRDS("data/DFO-management-areas.RDS")
 
 table(sf::st_is_valid(pfma)) # this
 
-pathogens.sf <- st_as_sf(pathogens.long, coords = c("Longitude", "Latitude"),
+pathogens.sf <- st_as_sf(van.island.long, coords = c("Longitude", "Latitude"),
                          crs = st_crs(4326), remove = FALSE)
 # CRS 4326 is the coordinate reference system for WGS 84 Mercator
 
