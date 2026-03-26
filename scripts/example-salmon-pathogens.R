@@ -30,7 +30,7 @@ library(sdmTMB)
 bc.coast <- read_sf("data/bc-coast.shp")
 
 pathogens <- read_excel("data/disease-data.xlsx",
-                              guess_max = 5719, sheet = "chinook")
+                        guess_max = 5719, sheet = "chinook")
 
 ## 2. Data exploration ----
 glimpse(pathogens) # what variables does the dataset include, 5719 fish sampled
@@ -135,8 +135,6 @@ ggplot() +
   coord_sf(datum = 4326, crs = 32610,
            xlim = c(50000, 530000), ylim = c(5300000, 5690000)) +
   labs(fill = "Sample\nsize")
-ggsave("figures/dev/salmon-pathogens-sample-size.PNG",
-       width = 17, height = 13, units = "cm")
 
 ## 2B. Look at the pathogens data ----
 
@@ -184,7 +182,7 @@ ggplot() +
   theme(legend.position = "bottom")
 # change page to look at all the different pathogens
 
-## 2C. Calculate prevalence in each grid cell with at least ----
+## 2C. Calculate prevalence in each grid cell  ----
 
 lo.sal <- data.frame(matrix(data = NA, nrow = 0, ncol = 3))
 names(lo.sal) <- c("grid_id", "total_n", "prevalence")
@@ -229,8 +227,6 @@ ggplot() +
   scale_fill_viridis_c(option = "B", limits = c(0, 100)) +
   coord_sf(datum = 4326, crs = 32610,
            xlim = c(50000, 530000), ylim = c(5300000, 5690000))
-ggsave("figures/dev/loma-salmonae-n5.PNG",
-       width = 20, height = 14, units = "cm")
 
 ## 3. Spatial model ----
 names(van.island.UTM)
@@ -276,10 +272,11 @@ m1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc", k = 5) + (1 | Stock_Region),
              mesh = loma.mesh,
              family = binomial(link = "logit"), # binomial GLM since presence/absence
              spatial = "on",
-             knots = list(doy = c(1, 365)))
+             knots = list(doy = c(1, 365))) # first and last day of year, needed
+             # for the cyclic cubic spline
 m1
 sanity(m1) # provides a method to check model
-AIC(m1)
+AIC(m1) # 4779.6
 
 # before we look at what the model says, how well does it fit? Let's look at the
 # residuals
@@ -340,7 +337,7 @@ sw.bc <- readRDS("data/sw-bc.RDS")
 st_crs(sw.bc)
 sw.bc <- st_transform(sw.bc, crs = 32610)
 
-shore.distance <- st_distance(x = grid.4km.ocean, y = sw.bc)
+shore.distance <- st_distance(x = grid.4km.ocean, y = sw.bc) # takes a while
 grid.4km.ocean$shore_dist <- as.numeric(shore.distance[, 1])
 
 ggplot() +
@@ -379,8 +376,6 @@ ggplot() +
   scale_y_continuous(breaks = c(48, 49, 50, 51)) +
   theme(axis.title = element_blank()) +
   labs(fill = "Estimated\nprevalence")
-ggsave("figures/dev/model1-spatial-predictions.PNG",
-       width = 17, height = 11, units = "cm", dpi = 900)
 
 m1.spatial.pred.uncertainty <- predict(m1, newdata = spatial.predict.grid, 
                            type = "response", se_fit = TRUE)
@@ -401,14 +396,13 @@ ggplot() +
   scale_y_continuous(breaks = c(48, 49, 50, 51)) +
   theme(axis.title = element_blank()) +
   labs(fill = "Standard\nerror")
-ggsave("figures/dev/model1-spatial-predictions-se.PNG",
-       width = 17, height = 11, units = "cm", dpi = 900)
 
 ## spatial predictions for each season
 ggplot() +
   geom_jitter(data = dat,
              aes(x = doy, y = 1, colour = season2),
-             width = 0, height = 1)
+             width = 0, height = 1) +
+  xlim(0, 365)
 
 # we will take the median sample day per season, but there are many ways you could do this!
 dat %>% 
@@ -490,16 +484,30 @@ doy.predict.grid$season2 <- "FaWi"
 doy.predict.grid$season2[doy.predict.grid$doy %in% 91:243] <- "SpSu"
 
 m1.doy.pred <- predict(m1, newdata = doy.predict.grid, 
-                         type = "response", se_fit = FALSE)
+                         type = "response", se_fit = TRUE)
+# returns predictions at link scale
+
+# get confidence intervals
+m1.doy.pred$lo_ci <- m1.doy.pred$est + (qnorm(0.025) * m1.doy.pred$est_se)
+m1.doy.pred$up_ci <- m1.doy.pred$est + (qnorm(0.975) * m1.doy.pred$est_se)
+
+# return to response scale with the inverse logit: exp(x)/(1+exp(x))
+m1.doy.pred$est_response <- exp(m1.doy.pred$est) / (1 + exp(m1.doy.pred$est))
+m1.doy.pred$lo_ci_response <- exp(m1.doy.pred$lo_ci) / (1 + exp(m1.doy.pred$lo_ci))
+m1.doy.pred$up_ci_response <- exp(m1.doy.pred$up_ci) / (1 + exp(m1.doy.pred$up_ci))
 
 # plot one smooth per coordinate
 m1.doy.pred$coord <- paste(m1.doy.pred$X, m1.doy.pred$Y, sep = "-")
 
 ggplot() +
+  geom_ribbon(data = m1.doy.pred,
+              aes(x = doy, ymin = lo_ci_response, ymax = up_ci_response,
+                  fill = coord), 
+              alpha = 0.3, show.legend = FALSE) +
   geom_line(data = m1.doy.pred,
-            aes(x = doy, y = est, colour = coord),
+            aes(x = doy, y = est_response, colour = coord),
             show.legend = FALSE)
-
+# which site does each smooth represent
 ggplot() +
   geom_sf(data = bc.coast.UTM) +
   geom_point(data = m1.doy.pred,
