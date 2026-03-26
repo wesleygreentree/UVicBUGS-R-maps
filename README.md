@@ -1,6 +1,7 @@
 # Spatial analysis with R: applications in ecology and evolution
 
 Workshop for UVic Biology Undergraduate Society (BUGS)
+
 Victoria, BC
 
 March 26, 2026
