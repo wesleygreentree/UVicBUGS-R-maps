@@ -443,9 +443,6 @@ ggplot() +
         strip.text = element_text(size = 11)) +
   labs(fill = "Estimated\nprevalence") +
   facet_wrap(~ label)
-ggsave("figures/dev/model1-seasonal-spatial-predictions.PNG",
-       width = 19, height = 8, units = "cm", dpi = 900)
-
 
 # Last, plot the fit of the GAM smooth from svc1.seasonal.pred
 
@@ -516,7 +513,7 @@ ggplot() +
   coord_sf(xlim = c(70 * 1000, 525 * 1000), 
            ylim = c(5320 * 1000, 5680 * 1000))
             
-## 3B Spatially-varying coefficients
+## 3B Spatially-varying coefficients ----
 ## take a look at spatially-varying coefficients, which is where the latent spatial
 # variation can vary by a covariate
 # Here we will let the spatial variation vary by season
@@ -537,6 +534,24 @@ AIC(m1)
 AIC(svc1) # lower AIC value indicates that svc1 is better than m1
 sanity(svc1)
 
+# quick look at residuals
+svc1.res <- residuals(svc1, type = "mle-mvn")
+qqnorm(svc1.res);abline(0, 1) # good
+
+hist(svc1.res) # good
+
+# plot residuals over space:
+dat$svc_residual <- residuals(svc1, type = "mle-mvn")
+
+ggplot() +
+  geom_point(data = dat,
+             aes(x = X, y = Y, colour = svc_residual), alpha = 0.6) +
+  scale_color_distiller(palette = "RdBu") +
+  facet_wrap(~ Year) 
+# may be worth adding a covariate to see if it improves residauls in Strait of 
+# Georgia in a couple years, but fairly acceptable
+
+# predict from model
 seasonal.predict.grid <- seasonal.predict.grid %>% 
   mutate(season2 = recode(as.character(doy),
                          "169" = "SpSu", "264" = "FaWi"))
@@ -562,6 +577,3 @@ ggplot() +
         strip.text = element_text(size = 11)) +
   labs(fill = "Estimated\nprevalence") +
   facet_wrap(~ label)
-ggsave("figures/dev/svc1-seasonal-spatial-predictions.PNG",
-       width = 19, height = 8, units = "cm", dpi = 900)
-
