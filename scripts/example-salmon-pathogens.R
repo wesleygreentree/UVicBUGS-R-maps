@@ -135,6 +135,8 @@ ggplot() +
   coord_sf(datum = 4326, crs = 32610,
            xlim = c(50000, 530000), ylim = c(5300000, 5690000)) +
   labs(fill = "Sample\nsize")
+ggsave("figures/dev/salmon-pathogens-sample-size.PNG",
+       width = 17, height = 13, units = "cm")
 
 ## 2B. Look at the pathogens data ----
 
@@ -363,14 +365,124 @@ spatial.predict.grid$Y <- as.numeric(spatial.predict.grid$Y)
 m1.spatial.pred <- predict(m1, newdata = spatial.predict.grid, 
                            type = "response", se_fit = FALSE)
 hist(m1.spatial.pred$est)
+
 ggplot() +
   geom_raster(data = m1.spatial.pred, 
             aes(X * 1000, Y * 1000, fill = est)) +
   geom_sf(data = bc.coast.UTM) +
-  scale_fill_viridis_c(trans = "sqrt") +
+  scale_fill_viridis_c(option = "B", trans = "identity") +
   coord_sf(xlim = c(70 * 1000, 525 * 1000), 
            ylim = c(5320 * 1000, 5680 * 1000)) +
   scale_x_continuous(breaks = c(-129, -127, -125, -123)) +
   scale_y_continuous(breaks = c(48, 49, 50, 51)) +
   theme(axis.title = element_blank()) +
-  labs(fill = "Prevalence")
+  labs(fill = "Estimated\nprevalence")
+
+m1.spatial.pred.uncertainty <- predict(m1, newdata = spatial.predict.grid, 
+                           type = "response", se_fit = TRUE)
+# returns predictions on link-scale, which works 
+hist(m1.spatial.pred.uncertainty$est_se)
+
+# the predictions are logit-transformed, we exponentiate to bring them back
+# to the original scale
+m1.spatial.pred.uncertainty$se_response <- exp(m1.spatial.pred.uncertainty$est_se)
+hist(m1.spatial.pred.uncertainty$se_response)
+
+ggplot() +
+  geom_raster(data = m1.spatial.pred.uncertainty, 
+              aes(X * 1000, Y * 1000, fill = se_response)) +
+  geom_sf(data = bc.coast.UTM) +
+  scale_fill_viridis_c(trans = "identity") +
+  coord_sf(xlim = c(70 * 1000, 525 * 1000), 
+           ylim = c(5320 * 1000, 5680 * 1000)) +
+  scale_x_continuous(breaks = c(-129, -127, -125, -123)) +
+  scale_y_continuous(breaks = c(48, 49, 50, 51)) +
+  theme(axis.title = element_blank()) +
+  labs(fill = "Standard\nerror")
+
+## spatial predictions for each season
+van.island.UTM %>% 
+  mutate(doy = yday(Date)) %>% 
+  group_by(season2) %>% 
+  summarize(median_doy = median(doy))
+
+seasonal.predict.grid <- expand.grid(
+  coord = paste(grid.coords$X / 1000,
+                grid.coords$Y / 1000, sep = ","), # spatial grid
+  doy = c(169, 264),
+  Stock_Region = factor("ECVI"))
+
+# divide spatial.predict.grid$coord into X and Y
+seasonal.predict.grid <- separate(seasonal.predict.grid, coord, c("X", "Y"), 
+                                 sep = ",", remove = TRUE)
+seasonal.predict.grid$X <- as.numeric(seasonal.predict.grid$X)
+seasonal.predict.grid$Y <- as.numeric(seasonal.predict.grid$Y)
+
+m1.seasonal.pred <- predict(m1, newdata = seasonal.predict.grid, 
+                           type = "response", se_fit = FALSE)
+hist(m1.seasonal.pred$est)
+
+m1.seasonal.pred <- m1.seasonal.pred %>% 
+  mutate(label = recode(as.character(doy),
+                        "169" = "June", "264" = "September"))
+
+ggplot() +
+  geom_raster(data = m1.seasonal.pred, 
+              aes(X * 1000, Y * 1000, fill = est)) +
+  geom_sf(data = bc.coast.UTM) +
+  scale_fill_viridis_c(option = "B", trans = "identity") +
+  coord_sf(xlim = c(70 * 1000, 525 * 1000), 
+           ylim = c(5320 * 1000, 5680 * 1000)) +
+  scale_x_continuous(breaks = c(-129, -127, -125, -123)) +
+  scale_y_continuous(breaks = c(48, 49, 50, 51)) +
+  theme(axis.title = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 11)) +
+  labs(fill = "Estimated\nprevalence") +
+  facet_wrap(~ label)
+
+## take a look at spatially-varying coefficients, which is where the latent spatial
+# variation can vary by a covariate
+# Here we will let the spatial variation vary by season
+dat$season2 <- factor(dat$season2)
+unique(dat$season2) # Spring summer, fall winter
+class(dat$season2)
+
+svc1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc") + (1 | Stock_Region),
+               data = dat,
+               mesh = loma.mesh,
+               spatial_varying = ~ season2,
+               family = binomial(link = "logit"), # binomial GLM since presence/absence
+               spatial = "on")
+#Use the Akaike information criterion to evaluate model fit
+AIC(m1)
+AIC(svc1) # lower AIC value indicates that svc1 is better than m1
+
+sanity(m1)
+
+seasonal.predict.grid <- seasonal.predict.grid %>% 
+  mutate(season2 = recode(as.character(doy),
+                         "169" = "SpSu", "264" = "FaWi"))
+seasonal.predict.grid <- select(seasonal.predict.grid, -season)
+
+svc1.seasonal.pred <- predict(svc1, newdata = seasonal.predict.grid, 
+                            type = "response", se_fit = FALSE)
+
+svc1.seasonal.pred <- svc1.seasonal.pred %>% 
+  mutate(label = recode(season2,
+                        "SpSu" = "June", "FaWi" = "September"))
+
+ggplot() +
+  geom_raster(data = svc1.seasonal.pred, 
+              aes(X * 1000, Y * 1000, fill = est)) +
+  geom_sf(data = bc.coast.UTM) +
+  scale_fill_viridis_c(option = "B", trans = "identity") +
+  coord_sf(xlim = c(70 * 1000, 525 * 1000), 
+           ylim = c(5320 * 1000, 5680 * 1000)) +
+  scale_x_continuous(breaks = c(-129, -127, -125, -123)) +
+  scale_y_continuous(breaks = c(48, 49, 50, 51)) +
+  theme(axis.title = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 11)) +
+  labs(fill = "Estimated\nprevalence") +
+  facet_wrap(~ label)
