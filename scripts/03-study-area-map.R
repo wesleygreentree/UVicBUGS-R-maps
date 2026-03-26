@@ -125,7 +125,7 @@ inset
 
 # add inset to the main study area map
 study.area + inset_element(inset,
-                           left = -0.007, bottom = 0.6, right = 0.4, top = 1.008,
+                           left = 0, bottom = 0.610, right = 0.4, top = 1,
                            align_to = "panel")
 # when left = 0, top = 1: there is a slight gap between the left and top
 # edge of the inset and the larger map behind it. Setting left = -0.01 and
@@ -133,7 +133,6 @@ study.area + inset_element(inset,
 # when trying to figure out appropriate position)
 
 # leaving it as left = 0 and top = 1 is perfectly acceptable, as well! 
-
 
 ggsave("figures/study-area-with-inset.PNG", 
        width = 17, height = 17, units = "cm",
