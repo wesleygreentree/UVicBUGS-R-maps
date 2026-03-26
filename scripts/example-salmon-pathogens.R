@@ -271,13 +271,15 @@ hist(dat$doy)
 # Population: include a random intercept to account for inter-population variation
 dat$Stock_Region <- factor(dat$Stock_Region)
 
-m1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc") + (1 | Stock_Region),
+m1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc", k = 5) + (1 | Stock_Region),
              data = dat,
              mesh = loma.mesh,
              family = binomial(link = "logit"), # binomial GLM since presence/absence
-             spatial = "on")
+             spatial = "on",
+             knots = list(doy = c(1, 365)))
 m1
 sanity(m1) # provides a method to check model
+AIC(m1)
 
 # before we look at what the model says, how well does it fit? Let's look at the
 # residuals
@@ -334,7 +336,7 @@ ggplot() +
 # so let's remove those
 
 # calculate distance to shore
-sw.bc <- readRDS("C:/Users/wgree/OneDrive/Documents/ASDP_biogeog/_Nathanael/ASDP_Index/data/sw-bc.RDS")
+sw.bc <- readRDS("data/sw-bc.RDS")
 st_crs(sw.bc)
 sw.bc <- st_transform(sw.bc, crs = 32610)
 
@@ -350,10 +352,11 @@ ggplot() +
 grid.4km.ocean <- subset(grid.4km.ocean, shore_dist < 60000)
 grid.coords <- data.frame(st_coordinates(grid.4km.ocean))
 
+# predict spatially
 spatial.predict.grid <- expand.grid(
   coord = paste(grid.coords$X / 1000,
                 grid.coords$Y / 1000, sep = ","), # spatial grid
-  doy = 183,
+  doy = 183, # median(dat$doy) = 183
   Stock_Region = factor("ECVI"))
 
 # divide spatial.predict.grid$coord into X and Y
@@ -364,7 +367,6 @@ spatial.predict.grid$Y <- as.numeric(spatial.predict.grid$Y)
 
 m1.spatial.pred <- predict(m1, newdata = spatial.predict.grid, 
                            type = "response", se_fit = FALSE)
-hist(m1.spatial.pred$est)
 
 ggplot() +
   geom_raster(data = m1.spatial.pred, 
@@ -377,12 +379,12 @@ ggplot() +
   scale_y_continuous(breaks = c(48, 49, 50, 51)) +
   theme(axis.title = element_blank()) +
   labs(fill = "Estimated\nprevalence")
+ggsave("figures/dev/model1-spatial-predictions.PNG",
+       width = 17, height = 11, units = "cm", dpi = 900)
 
 m1.spatial.pred.uncertainty <- predict(m1, newdata = spatial.predict.grid, 
                            type = "response", se_fit = TRUE)
-# returns predictions on link-scale, which works 
-hist(m1.spatial.pred.uncertainty$est_se)
-
+# returns predictions on link-scale
 # the predictions are logit-transformed, we exponentiate to bring them back
 # to the original scale
 m1.spatial.pred.uncertainty$se_response <- exp(m1.spatial.pred.uncertainty$est_se)
@@ -399,9 +401,17 @@ ggplot() +
   scale_y_continuous(breaks = c(48, 49, 50, 51)) +
   theme(axis.title = element_blank()) +
   labs(fill = "Standard\nerror")
+ggsave("figures/dev/model1-spatial-predictions-se.PNG",
+       width = 17, height = 11, units = "cm", dpi = 900)
 
 ## spatial predictions for each season
-van.island.UTM %>% 
+ggplot() +
+  geom_jitter(data = dat,
+             aes(x = doy, y = 1, colour = season2),
+             width = 0, height = 1)
+
+# we will take the median sample day per season, but there are many ways you could do this!
+dat %>% 
   mutate(doy = yday(Date)) %>% 
   group_by(season2) %>% 
   summarize(median_doy = median(doy))
@@ -412,7 +422,7 @@ seasonal.predict.grid <- expand.grid(
   doy = c(169, 264),
   Stock_Region = factor("ECVI"))
 
-# divide spatial.predict.grid$coord into X and Y
+# divide seasonal.predict.grid$coord into X and Y
 seasonal.predict.grid <- separate(seasonal.predict.grid, coord, c("X", "Y"), 
                                  sep = ",", remove = TRUE)
 seasonal.predict.grid$X <- as.numeric(seasonal.predict.grid$X)
@@ -420,7 +430,6 @@ seasonal.predict.grid$Y <- as.numeric(seasonal.predict.grid$Y)
 
 m1.seasonal.pred <- predict(m1, newdata = seasonal.predict.grid, 
                            type = "response", se_fit = FALSE)
-hist(m1.seasonal.pred$est)
 
 m1.seasonal.pred <- m1.seasonal.pred %>% 
   mutate(label = recode(as.character(doy),
@@ -440,7 +449,66 @@ ggplot() +
         strip.text = element_text(size = 11)) +
   labs(fill = "Estimated\nprevalence") +
   facet_wrap(~ label)
+ggsave("figures/dev/model1-seasonal-spatial-predictions.PNG",
+       width = 19, height = 8, units = "cm", dpi = 900)
 
+
+# Last, plot the fit of the GAM smooth from svc1.seasonal.pred
+
+# to account for spatial variation, let's predict the smooth at the four
+# most-sampled grids
+
+most.common.grids <- grid.sample.size %>% arrange(desc(n)) %>% head(n = 4)
+
+ggplot() +
+  geom_sf(data = bc.coast.UTM) +
+  geom_sf(data = subset(hexagon.grid, grid_id %in% most.common.grids$grid_id),
+          fill = "red") +
+  coord_sf(xlim = c(70 * 1000, 525 * 1000), 
+           ylim = c(5320 * 1000, 5680 * 1000))
+
+# take the grid centroids
+most.common.grids.centroids <- data.frame(st_coordinates(st_centroid(most.common.grids)))
+names(most.common.grids.centroids)
+
+doy.predict.grid <- expand.grid(
+  coord = paste(most.common.grids.centroids$X / 1000, 
+                most.common.grids.centroids$Y / 1000, sep = ","),
+  doy = seq(1, 365, by = 1), # every third day
+  Stock_Region = factor("ECVI") # most common stock
+)
+
+# divide doy.grid$coord into X and Y
+doy.predict.grid <- separate(doy.predict.grid, coord, c("X", "Y"), 
+                             sep = ",", remove = TRUE)
+doy.predict.grid$X <- as.numeric(doy.predict.grid$X)
+doy.predict.grid$Y <- as.numeric(doy.predict.grid$Y)
+
+# assign season2: April to August, September to March
+table(dat$season2)
+doy.predict.grid$season2 <- "FaWi"
+doy.predict.grid$season2[doy.predict.grid$doy %in% 91:243] <- "SpSu"
+
+m1.doy.pred <- predict(m1, newdata = doy.predict.grid, 
+                         type = "response", se_fit = FALSE)
+
+# plot one smooth per coordinate
+m1.doy.pred$coord <- paste(m1.doy.pred$X, m1.doy.pred$Y, sep = "-")
+
+ggplot() +
+  geom_line(data = m1.doy.pred,
+            aes(x = doy, y = est, colour = coord),
+            show.legend = FALSE)
+
+ggplot() +
+  geom_sf(data = bc.coast.UTM) +
+  geom_point(data = m1.doy.pred,
+             aes(x = X * 1000, y = Y * 1000, colour = coord),
+             size = 3, show.legend = FALSE) +
+  coord_sf(xlim = c(70 * 1000, 525 * 1000), 
+           ylim = c(5320 * 1000, 5680 * 1000))
+            
+## 3B Spatially-varying coefficients
 ## take a look at spatially-varying coefficients, which is where the latent spatial
 # variation can vary by a covariate
 # Here we will let the spatial variation vary by season
@@ -448,22 +516,22 @@ dat$season2 <- factor(dat$season2)
 unique(dat$season2) # Spring summer, fall winter
 class(dat$season2)
 
-svc1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc") + (1 | Stock_Region),
+svc1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc", k = 5) + (1 | Stock_Region),
                data = dat,
                mesh = loma.mesh,
-               spatial_varying = ~ season2,
+               spatial_varying = ~ 0 + season2,
                family = binomial(link = "logit"), # binomial GLM since presence/absence
-               spatial = "on")
+               spatial = "off",
+               knots = list(doy = c(1, 365))) # spatial_varying ~ 0 + season2 includes the spatial
+                                # intercept so spatial = "on" is not needed
 #Use the Akaike information criterion to evaluate model fit
 AIC(m1)
 AIC(svc1) # lower AIC value indicates that svc1 is better than m1
-
-sanity(m1)
+sanity(svc1)
 
 seasonal.predict.grid <- seasonal.predict.grid %>% 
   mutate(season2 = recode(as.character(doy),
                          "169" = "SpSu", "264" = "FaWi"))
-seasonal.predict.grid <- select(seasonal.predict.grid, -season)
 
 svc1.seasonal.pred <- predict(svc1, newdata = seasonal.predict.grid, 
                             type = "response", se_fit = FALSE)
@@ -486,3 +554,6 @@ ggplot() +
         strip.text = element_text(size = 11)) +
   labs(fill = "Estimated\nprevalence") +
   facet_wrap(~ label)
+ggsave("figures/dev/svc1-seasonal-spatial-predictions.PNG",
+       width = 19, height = 8, units = "cm", dpi = 900)
+

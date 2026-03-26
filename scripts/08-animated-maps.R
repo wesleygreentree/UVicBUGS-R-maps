@@ -16,6 +16,9 @@ south.america.antarctica <- ne_countries(scale = "medium",
                                          continent = c("north america",
                                                        "south america",
                                                        "antarctica"))
+saveRDS(south.america.antarctica, "data/south-america.RDS")
+
+south.america.antarctica <- readRDS("data/south-america.RDS")
 
 static <- ggplot() +
   geom_sf(data = south.america.antarctica) +
