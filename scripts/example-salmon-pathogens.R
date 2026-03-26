@@ -181,6 +181,11 @@ ggplot() +
 
 ## 2C. Calculate prevalence in each grid cell  ----
 
+class(van.island.UTM$lo_sal)
+van.island.UTM$lo_sal[van.island.UTM$lo_sal == "NA"] <- NA
+van.island.UTM$lo_sal <- as.numeric(van.island.UTM$lo_sal)
+range(van.island.UTM$lo_sal, na.rm = TRUE)
+
 lo.sal <- data.frame(matrix(data = NA, nrow = 0, ncol = 3))
 names(lo.sal) <- c("grid_id", "total_n", "prevalence")
 
@@ -224,6 +229,7 @@ ggplot() +
   scale_fill_viridis_c(option = "B", limits = c(0, 100)) +
   coord_sf(datum = 4326, crs = 32610,
            xlim = c(50000, 530000), ylim = c(5300000, 5690000))
+ggsave("figures/dev/loma-salmonae-n5.PNG", width = 20, height = 14, units = "cm", dpi = 900)
 
 ## 2D Leaflet interactive map ---- 
 lo.sal.LL <- st_transform(lo.sal, crs = st_crs(4326)) # return shapefile to WGS 84
@@ -246,7 +252,50 @@ leaflet(lo.sal.LL) %>%
               fillOpacity = 0.8, stroke = FALSE) %>% 
   addLegend(pal = pal, values = ~Percentage, opacity = 0.7, title = "Percentage",
             position = "topright")
-  
+# ignore the warning
+
+## 2E Regional visualization ----
+# Determine prevalence of Loma salmonae in four regions
+# Regions are built by aggregating the Pacific Fishery Management Areas that 
+# Fisheries and Oceans Canada uses for fisheries management in British Columbia
+
+pfma <- readRDS("data/DFO-management-areas.RDS") # provided the shapefile as RDS to save space
+pfma.UTM <- st_transform(pfma, crs = st_crs(32610))  
+names(pfma.UTM)
+# define regions
+pfma.UTM <- pfma.UTM %>% 
+  mutate(region = case_when(MGNT_AREA %in% c(12, 13, 15) ~ "NE VI",
+                            MGNT_AREA %in% c(14:19, 28, 29) ~ "SE VI",
+                            MGNT_AREA %in% c(20:24,  121:124) ~ "SW VI",
+                            MGNT_AREA %in% c(111, 25:27, 125:127) ~ "NW VI"))
+
+ggplot() +
+  geom_sf(data = pfma.UTM, aes(fill = region))
+
+# join pathogen data to regions
+van.island.UTM <- st_join(x = van.island.UTM, y = pfma.UTM)
+
+ggplot() +
+  geom_sf(data = van.island.UTM, aes(colour = region))
+# all NAs are in southeast Vancouver Island region (some samples are from the US)
+# assign NAs to SE Van Island
+van.island.UTM$region[is.na(van.island.UTM$region)] <- "SE VI"
+
+# plot prevalence
+
+# define Loma salmonae presence/absence column
+van.island.UTM$lo_sal_binary <- 0
+van.island.UTM$lo_sal_binary[van.island.UTM$lo_sal > 0] <- 1
+table(van.island.UTM$lo_sal_binary) # Loma salmonae found in 1139 of 5060 samples
+
+regional.lo.sal.prevalence <- data.frame(table(van.island.UTM$region, van.island.UTM$lo_sal_binary))
+names(regional.lo.sal.prevalence) <- c("region", "present", "n")
+
+ggplot() +
+  geom_bar(data = regional.lo.sal.prevalence,
+           aes(x = region, weight = n, fill = present),
+           position = "fill") # most common on NW VI
+
 ## 3. Spatial model ----
 names(van.island.UTM)
 van.island.UTM
@@ -258,12 +307,6 @@ utm.coords <- utm.coords %>%
          Y = Y / 1000) # convert from metres to kilometres
 head(utm.coords)
 van.island.UTM <- cbind(van.island.UTM, utm.coords)
-
-# define Loma salmonae presence/absence column
-
-van.island.UTM$lo_sal_binary <- 0
-van.island.UTM$lo_sal_binary[van.island.UTM$lo_sal > 0] <- 1
-table(van.island.UTM$lo_sal_binary) # Loma salmonae found in 1229 of 5060 samples
 
 ggplot() +
   geom_sf(data = van.island.UTM, aes(colour = factor(lo_sal_binary))) +
@@ -295,7 +338,7 @@ m1 <- sdmTMB(lo_sal_binary ~ s(doy, bs = "cc", k = 5) + (1 | Stock_Region),
              # for the cyclic cubic spline
 m1
 sanity(m1) # provides a method to check model
-AIC(m1) # 4779.6
+AIC(m1) 
 
 # before we look at what the model says, how well does it fit? Let's look at the
 # residuals
@@ -352,7 +395,7 @@ ggplot() +
 # so let's remove those
 
 # calculate distance to shore
-sw.bc <- readRDS("data/sw-bc.RDS")
+sw.bc <- readRDS("data/sw-bc.RDS") # finer scale shapefile of SW BC, made with Open Street Map
 st_crs(sw.bc)
 sw.bc <- st_transform(sw.bc, crs = 32610)
 
@@ -522,7 +565,8 @@ ggplot() +
               alpha = 0.3, show.legend = FALSE) +
   geom_line(data = m1.doy.pred,
             aes(x = doy, y = est_response, colour = coord),
-            show.legend = FALSE)
+            show.legend = FALSE) +
+  labs(x = "Day of year", y = "Loma salmonae prevalence")
 # which site does each smooth represent
 ggplot() +
   geom_sf(data = bc.coast.UTM) +

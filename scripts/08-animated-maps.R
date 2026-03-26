@@ -1,7 +1,7 @@
 # Animated maps
 # If you are interested in learning more, I have a tutorial on animated maps for
 # acoustic telemetry studies of fish movement: 
-https://github.com/wesleygreentree/telemetry-animations
+# https://github.com/wesleygreentree/telemetry-animations
 
 library(ggplot2)
 library(gganimate)
