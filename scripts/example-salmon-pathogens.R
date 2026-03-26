@@ -12,11 +12,8 @@
 # temporal distribution of infectious agents in early marine Chinook and coho
 # salmon. Marine Ecology Progress Series. https://doi.org/10.3354/meps14581
 
-
-## make an interactive map
-leaflet(pathogens) %>% addTiles() %>% 
-  addMarkers(lng = ~Longitude, lat = ~Latitude,
-             label = ~Stock)
+# The sdmTMB models here are very simplistic and are only meant to serve as
+# toy examples
 
 ## 1. Load packages and data ----
 library(tidyverse); theme_set(theme_bw())
