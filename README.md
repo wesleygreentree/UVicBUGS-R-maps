@@ -1,13 +1,15 @@
-# Making maps in R: applications to ecology and evolution
+# Spatial analysis with R: applications in ecology and evolution
 
-Workshop for UVic Biology Undergraduate Society
+Workshop for UVic Biology Undergraduate Society (BUGS)
 Victoria, BC
 
-March 18, 2025
+March 26, 2026
 
 Wesley Greentree, wgreentree@outlook.com
 
 Thank you for attending this workshop on using the R programming language to make beautiful maps to communicate science! This workshop covers a range of maps, from standard study area maps to animated maps with satellite images ([examples here](https://wesleygreentree.github.io/animations/)) This Github repository includes code, data, and slides for the workshop.
+
+This workshop includes code for both the 2025 and 2026 workshops for BUGS. The major change for 2026 is the addition of `scripts/example-salmon-pathogens.R`, which includes an example of a spatial analysis.
 
 ![study-area-map](figures/study-area-with-inset.PNG)
 
@@ -26,4 +28,4 @@ If you haven't run an R script before, you can highlight all code in this script
 
 **Technical details**
 
-Using R 4.4.0 with packages installed May 2024. 
+Using R 4.5.3 with packages installed March 2026. 
