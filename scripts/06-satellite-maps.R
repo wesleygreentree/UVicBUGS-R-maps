@@ -38,7 +38,6 @@ drawn.extent <- draw_ext()
 basemap_ggplot(ext = drawn.extent,
                map_service = "esri",
                map_type = "usa_topo_maps")
-# basemap_ggplot() will erresri_world_imageryor if you did not draw an extent!
 
 # can add more features to basemap_ggplot(), e.g.:
 # basemap_ggplot(ext = drawn.extent,

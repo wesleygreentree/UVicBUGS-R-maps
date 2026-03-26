@@ -6,7 +6,8 @@ install.packages(c("sf", "stars", "tidyverse",
                    "basemaps", "rphylopic", "gganimate",
                    "terra", "tidyterra", "palmerpenguins",
                    "rnaturalearth", "rnaturalearthdata", "leaflet", "ggnewscale",
-                   "patchwork", "mapedit", "ggspatial"))
+                   "patchwork", "mapedit", "ggspatial", "reshape2", "ggforce",
+                   "sdmTMB", "readxl"))
 
 install.packages("rnaturalearthhires",
   repos = "https://ropensci.r-universe.dev",

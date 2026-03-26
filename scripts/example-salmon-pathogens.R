@@ -225,7 +225,7 @@ ggplot() +
   coord_sf(datum = 4326, crs = 32610,
            xlim = c(50000, 530000), ylim = c(5300000, 5690000))
 
-## 2D Leaflet interactive map ----
+## 2D Leaflet interactive map ---- 
 lo.sal.LL <- st_transform(lo.sal, crs = st_crs(4326)) # return shapefile to WGS 84
 
 # make colour scale
@@ -233,7 +233,7 @@ bins <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
 pal <- colorBin("YlOrRd", domain = lo.sal.LL$Percentage, bins = bins)
 # uses RColorBrewer palettes: colorbrewer2.org
 
-# make labels
+# make labels, using html formatting
 labels <- sprintf(
   "<strong>Total sample size: </strong>%s<br/>L. salmonae: %g",
   lo.sal.LL$total_n, round(lo.sal.LL$Percentage, 1)) %>% 

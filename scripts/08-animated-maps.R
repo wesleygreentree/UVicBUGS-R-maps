@@ -1,4 +1,7 @@
 # Animated maps
+# If you are interested in learning more, I have a tutorial on animated maps for
+# acoustic telemetry studies of fish movement: 
+https://github.com/wesleygreentree/telemetry-animations
 
 library(ggplot2)
 library(gganimate)
@@ -16,9 +19,6 @@ south.america.antarctica <- ne_countries(scale = "medium",
                                          continent = c("north america",
                                                        "south america",
                                                        "antarctica"))
-saveRDS(south.america.antarctica, "data/south-america.RDS")
-
-south.america.antarctica <- readRDS("data/south-america.RDS")
 
 static <- ggplot() +
   geom_sf(data = south.america.antarctica) +
@@ -46,7 +46,7 @@ dynamic <- static +
 # save low resolution version (saves quickly)
 anim_save("figures/whale-animation-low-res.gif", dynamic)
 
-# oor save high resolution version (takes a long time)
+# or save high resolution version (takes a long time)
 anim_save("figures/whale-animation.gif", dynamic,
           height = 15, width = 12, units = "cm",
           res = 600, fps = 10, nframes = 150)
