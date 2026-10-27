@@ -144,7 +144,6 @@ rca.wgs <- st_transform(rca, crs = st_crs(4326))
 
 # load in rockfish observations from iNaturalist
 iNaturalist.rockfish <- read.csv("data/iNaturalist-rockfish.csv")
-  
 
 rockfish <- ggplot() +
   geom_sf(data = rca.wgs, 
@@ -223,23 +222,11 @@ gebco.aspect <- terra::terrain(gebco.clipped, v = "aspect", unit = "radians")
 gebco.hillshade <- shade(slope = gebco.slope, aspect = gebco.aspect,
                          angle = 45, direction = 315)
 
-# ocean hillshading
-gebco.ocean <- mask(gebco, mask = bc.coast, inverse = TRUE)
-
-gebco.ocean.slope <- terra::terrain(gebco.ocean, v = "slope", unit = "radians") 
-gebco.ocean.aspect <- terra::terrain(gebco.ocean, v = "aspect", unit = "radians")
-gebco.ocean.hillshade <- shade(slope = gebco.ocean.slope, 
-  aspect = gebco.ocean.aspect, angle = 45, direction = 315)
-
-ggplot() +
-  geom_spatraster(data = gebco.ocean.hillshade,
-                  maxcell = 5e+15, alpha = 1,
+hillshade <- ggplot() +
+  geom_spatraster(data = gebco.hillshade,
+                  maxcell = 5e+15, alpha = 0.7,
                   show.legend = FALSE) +
-  
-  # geom_spatraster(data = gebco.hillshade,
-  #                 maxcell = 5e+15, alpha = 0.7,
-  #                 show.legend = FALSE) + 
-  scale_fill_distiller(palette = "Blues", na.value = "transparent") +
+  scale_fill_distiller(palette = "Greys", na.value = "transparent") +
   
   geom_sf(data = rca.wgs, 
           fill = "firebrick1", colour = "firebrick1", alpha = 0.4) +
@@ -292,6 +279,13 @@ ggplot() +
   scale_y_continuous(breaks = c(48, 48.5, 49, 49.5)) +
   
   theme_map()
+
+hillshade + inset_element(inset, left = -0.01, bottom = 0.620,
+                         right = 0.393, top = 1.00, align_to = "panel")
+
+ggsave("figures/rockfish-hillshading.PNG",  
+       width = 17, height = 17, units = "cm",
+       background = "white", dpi = 300)
 
 ## Appendix: study area maps in other projections
 
