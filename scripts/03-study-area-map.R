@@ -138,58 +138,6 @@ ggsave("figures/study-area-with-inset.PNG",
        width = 17, height = 17, units = "cm",
        background = "white", dpi = 300)
 
-
-## 2. Add bathymetry and topography 
-# see scripts/04-bathymetry.R and scripts/05-topography.R for full details
-# and explanations on what is happening
-
-library(tidyterra)
-library(terra)
-
-# read in digital elevation model
-gebco <- readRDS("data/gebco.RDS")
-
-# get bathymetry layer
-gebco.ocean <- mask(gebco, mask = bc.coast, inverse = TRUE)
-
-# calculate hillshading layer for topography
-gebco.clipped <- crop(gebco, bc.coast, mask = TRUE)
-gebco.slope <- terra::terrain(gebco.clipped, v = "slope", unit = "radians") 
-gebco.aspect <- terra::terrain(gebco.clipped, v = "aspect", unit = "radians")
-gebco.hillshade <- shade(slope = gebco.slope, aspect = gebco.aspect,
-                         angle = 45, direction = 315)
-
-ggplot() +
-  geom_spatraster(data = gebco.hillshade,
-                  maxcell = 5e+15, alpha = 1,
-                  show.legend = FALSE) + # 0.7 or 0.45?
-  scale_fill_distiller(palette = "Greys", na.value = "transparent") +
-  
-  # add bathymetry, and plot land overtop
-  ggnewscale::new_scale_fill() +
-  
-  geom_spatraster(data = gebco.ocean,
-                  maxcell = 5e+15) +
-  scale_fill_fermenter(palette = "Blues",
-                       breaks = c(-50, -100, -200, -300, -400),
-                       labels = c(">400", "300", "200", "100", "50"),
-                       na.value = "transparent") +
-  labs(fill = "Depth (m)") + # assigns legend title
-  
-  # add land boundary
-  geom_sf(data = bc.coast, fill = "transparent", colour = "black") +
-  
-  # add scale bar and north arrow
-  annotation_scale(width_hint = 0.35, style = "bar") + 
-  annotation_north_arrow(location = "tr", 
-                         height = unit(0.9, "cm"), width = unit(0.6, "cm"),
-                         which_north = "true") +
-  
-  coord_sf(xlim = c(-124.5, -122.5), ylim = c(48, 49.5)) +
-  scale_x_continuous(breaks = c(-122.5, -123, -123.5, -124, -124.5)) +
-  scale_y_continuous(breaks = c(48, 48.5, 49, 49.5)) +
-  theme_map()
-
 ## 3. add rockfish conservation areas and use BC Albers
 rca <- read_sf("data-raw/rca-shapefile/rockfish_102001.shp")
 st_crs(rca) # in EPSG 102001, Canada Albers Equal Area Conic
@@ -266,59 +214,9 @@ rockfish +
                 align_to = "panel")
 ggsave("figures/rockfish.PNG", width = 17, height = 15, units = "cm")
 
-
-# alternative: add depth contours
-ggplot() +
-  # depth contours
-  geom_spatraster_contour(data = gebco.ocean, maxcell = 5e+15,
-                          breaks = c(-50)) +
-  
-  # the rest is the same as previously
-  geom_sf(data = rca.wgs, 
-          fill = "firebrick1", colour = "firebrick1", alpha = 0.4) +
-  
-  # some observations were on land, so plot iNaturalist observations behind 
-  # land (likely GPS or data upload errors)
-  geom_point(data = iNaturalist.rockfish,
-             aes(x = longitude, y = latitude),
-             colour = "steelblue3", size = 2, alpha = 0.7) +
-  
-  geom_sf(data = bc.coast) +
-  
-  coord_sf(xlim = c(-123.9, -122.8), ylim = c(48.0, 48.8)) +
-  theme_map() +
-
-  # same labels and inset code as before
-  annotate(geom = "text",
-           x = -123.48, y = 48.25,
-           label = "Strait of Juan de Fuca",
-           fontface = "italic",
-           size = 4, colour = "steelblue") +
-  annotate(geom = "text",
-           x = -123.365, y = 48.46,
-           label = "Victoria", 
-           size = 4, colour = "black") +
-  
-  # add legend for RCAs (manually since only one level)
-  annotate(geom = "rect",
-           xmin = -123.9, xmax = -123.8, ymin = 48.01, ymax = 48.03,
-           colour = "firebrick1", fill = "firebrick1", alpha = 0.4) +
-  annotate(geom = "text",
-           x = -123.55, y = 48.023,
-           label = "Rockfish conservation areas", 
-           size = 4, colour = "black") +
-  
-  inset_element(inset,
-                left = -0.01, bottom = 0.7, right = 0.3, top = 1,
-                align_to = "panel")
-# the gaps in contours may be because GEBCO file is relatively low-resolution
-# (e.g., very sharp drop offs in Saanich Inlet) 
-# using the full gebco file (not gebco.ocean) can also help
-
-
 ## 4 study area maps in other projections
 
-bc.coast.albers <- st_transform(bc.coast, crs = st_crs(4326))
+bc.coast.albers <- st_transform(bc.coast, crs = st_crs(3005))
 albers.graticules <- st_graticule(bc.coast.albers)
 
 # labels in metres
