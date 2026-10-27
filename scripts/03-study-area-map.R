@@ -9,6 +9,8 @@ library(sf)
 library(ggplot2)
 library(ggspatial)
 library(patchwork)
+library(terra)
+library(tidyterra)
 
 # define custom plot themes 
 # kudos to Dr. Dominique Maucieri, former PhD student at UVic 
@@ -118,11 +120,6 @@ inset <- ggplot() +
   theme_inset()
 inset
 
-insetplot::get_bbox_features(bbox2)
-
-0.62 * 1 / 1.4
-
-
 # add inset to the main study area map
 # Using coord_sf makes it difficult to fit the inset map exactly in the
 # corner of the map. So a bit of trial and error is needed.
@@ -147,6 +144,7 @@ rca.wgs <- st_transform(rca, crs = st_crs(4326))
 
 # load in rockfish observations from iNaturalist
 iNaturalist.rockfish <- read.csv("data/iNaturalist-rockfish.csv")
+  
 
 rockfish <- ggplot() +
   geom_sf(data = rca.wgs, 
@@ -156,65 +154,146 @@ rockfish <- ggplot() +
   # land (likely GPS or data upload errors)
   geom_point(data = iNaturalist.rockfish,
              aes(x = longitude, y = latitude),
-             colour = "dodgerblue", size = 2, alpha = 0.7) +
+             colour = "dodgerblue", size = 1.5, alpha = 0.6) +
 
   geom_sf(data = bc.coast) +
   
-  coord_sf(xlim = c(-123.9, -122.8), ylim = c(48.0, 48.8)) +
-  theme_map()
-rockfish
-
-inset <- ggplot() +
-  geom_sf(data = bc.coast, linewidth = 0.04) + # decrease linewidth from default
-  
-  annotate(geom = "rect", 
-           xmin = -123.9, xmax = -122.8, ymin = 48, ymax = 48.8,
-           fill = "transparent", colour = "black") +
-  
-  coord_sf(xlim = c(-134, -120), ylim = c(45, 55)) +
-  theme_inset()
-inset
-
-# add labels and an inset map
-rockfish +
-  annotation_scale(width_hint = 0.25) +
-  annotation_north_arrow(location = "tr", 
-                         height = unit(0.9, "cm"), width = unit(0.6, "cm"),
-                         which_north = "true") +
-  
-  # same labels and inset code as before
-  annotate(geom = "text",
-           x = -123.48, y = 48.25,
-           label = "Strait of Juan de Fuca",
-           fontface = "italic",
-           size = 4, colour = "steelblue") +
-  annotate(geom = "text",
-           x = -123.365, y = 48.46,
-           label = "Victoria", 
-           size = 4, colour = "black") +
-  
-  # add legend for RCAs (manually since only one level)
+  # add legend for iNat data and RCAs (manually since only one level)
   annotate(geom = "point", size = 2,
-           x = -123.85, y = 48.06, colour = "dodgerblue", alpha = 0.7) +
+           x = -124.45, y = 48.08, colour = "dodgerblue", alpha = 0.7) +
   annotate(geom = "text",
-           x = -123.76, y = 48.06,
+           x = -124.41, y = 48.08,
            label = "iNaturalist rockfish observations", 
            size = 4, colour = "black", hjust = 0) +
   
   annotate(geom = "rect",
-           xmin = -123.9, xmax = -123.8, ymin = 48.01, ymax = 48.03,
+           xmin = -124.47, xmax = -124.43, ymin = 48.12, ymax = 48.15,
            colour = "firebrick1", fill = "firebrick1", alpha = 0.4) +
   annotate(geom = "text",
-           x = -123.76, y = 48.023,
+           x = -124.41, y = 48.13,
            label = "Rockfish conservation areas", 
            size = 4, colour = "black", hjust = 0) +
   
-  inset_element(inset,
-                left = -0.01, bottom = 0.7, right = 0.3, top = 1,
-                align_to = "panel")
-ggsave("figures/rockfish.PNG", width = 17, height = 15, units = "cm")
+  # add labels
+  annotate(geom = "text",
+           x = -124.15, y = 48.8, 
+           label = "Vancouver\nIsland",
+           size = 4.2, lineheight = 0.75, colour = "black") +
+  annotate(geom = "text",
+           x = -123.2, y = 48.3,
+           label = "Strait of Juan de Fuca",
+           fontface = "italic",
+           size = 4, colour = "steelblue") +
+  
+  # add scale bar and north arrow
+  annotation_scale(width_hint = 0.35, style = "bar") + 
+  # width_hint is how you change the distance represented by the scalebar
+  annotation_north_arrow(location = "tr", 
+                         height = unit(0.9, "cm"), width = unit(0.6, "cm"),
+                         which_north = "true") +
+  
+  coord_sf(xlim = c(-124.5, -122.5), ylim = c(48, 49.5),
+           expand = FALSE) +
+  scale_x_continuous(breaks = c(-122.5, -123, -123.5, -124, -124.5)) +
+  scale_y_continuous(breaks = c(48, 48.5, 49, 49.5)) +
+  
+  theme_map()
 
-## 4 study area maps in other projections
+rockfish + inset_element(inset, left = -0.01, bottom = 0.620,
+  right = 0.393, top = 1.00, align_to = "panel")
+
+ggsave("figures/rockfish.PNG",  
+       width = 17, height = 17, units = "cm",
+       background = "white", dpi = 300)
+
+# one more update we can make: hillshading to show topography of the land
+# masses
+
+gebco <- readRDS("data/gebco.RDS")
+gebco <- terra::unwrap(gebco)
+
+# clip the digital elevation model to be only on land 
+# note that hillshading can also be used for the ocean!!
+gebco.clipped <- crop(gebco, bc.coast, mask = TRUE)
+plot(gebco.clipped)
+
+# calculate hillshading layer to illustrate topography
+gebco.slope <- terra::terrain(gebco.clipped, v = "slope", unit = "radians") 
+gebco.aspect <- terra::terrain(gebco.clipped, v = "aspect", unit = "radians")
+gebco.hillshade <- shade(slope = gebco.slope, aspect = gebco.aspect,
+                         angle = 45, direction = 315)
+
+# ocean hillshading
+gebco.ocean <- mask(gebco, mask = bc.coast, inverse = TRUE)
+
+gebco.ocean.slope <- terra::terrain(gebco.ocean, v = "slope", unit = "radians") 
+gebco.ocean.aspect <- terra::terrain(gebco.ocean, v = "aspect", unit = "radians")
+gebco.ocean.hillshade <- shade(slope = gebco.ocean.slope, 
+  aspect = gebco.ocean.aspect, angle = 45, direction = 315)
+
+ggplot() +
+  geom_spatraster(data = gebco.ocean.hillshade,
+                  maxcell = 5e+15, alpha = 1,
+                  show.legend = FALSE) +
+  
+  # geom_spatraster(data = gebco.hillshade,
+  #                 maxcell = 5e+15, alpha = 0.7,
+  #                 show.legend = FALSE) + 
+  scale_fill_distiller(palette = "Blues", na.value = "transparent") +
+  
+  geom_sf(data = rca.wgs, 
+          fill = "firebrick1", colour = "firebrick1", alpha = 0.4) +
+  
+  # some observations were on land, so plot iNaturalist observations behind 
+  # land (likely GPS or data upload errors)
+  geom_point(data = iNaturalist.rockfish,
+             aes(x = longitude, y = latitude),
+             colour = "dodgerblue", size = 1.5, alpha = 0.6) +
+  
+  geom_sf(data = bc.coast, fill = "transparent") +
+  
+  # add legend for iNat data and RCAs (manually since only one level)
+  annotate(geom = "point", size = 2,
+           x = -124.45, y = 48.08, colour = "dodgerblue", alpha = 0.7) +
+  annotate(geom = "text",
+           x = -124.41, y = 48.08,
+           label = "iNaturalist rockfish observations", 
+           size = 4, colour = "black", hjust = 0) +
+  
+  annotate(geom = "rect",
+           xmin = -124.47, xmax = -124.43, ymin = 48.12, ymax = 48.15,
+           colour = "firebrick1", fill = "firebrick1", alpha = 0.4) +
+  annotate(geom = "text",
+           x = -124.41, y = 48.13,
+           label = "Rockfish conservation areas", 
+           size = 4, colour = "black", hjust = 0) +
+  
+  # add labels
+  annotate(geom = "text",
+           x = -124.15, y = 48.8, 
+           label = "Vancouver\nIsland",
+           size = 4.2, lineheight = 0.75, colour = "black") +
+  annotate(geom = "text",
+           x = -123.2, y = 48.3,
+           label = "Strait of Juan de Fuca",
+           fontface = "italic",
+           size = 4, colour = "steelblue") +
+  
+  # add scale bar and north arrow
+  annotation_scale(width_hint = 0.35, style = "bar") + 
+  # width_hint is how you change the distance represented by the scalebar
+  annotation_north_arrow(location = "tr", 
+                         height = unit(0.9, "cm"), width = unit(0.6, "cm"),
+                         which_north = "true") +
+  
+  coord_sf(xlim = c(-124.5, -122.5), ylim = c(48, 49.5),
+           expand = FALSE) +
+  scale_x_continuous(breaks = c(-122.5, -123, -123.5, -124, -124.5)) +
+  scale_y_continuous(breaks = c(48, 48.5, 49, 49.5)) +
+  
+  theme_map()
+
+## Appendix: study area maps in other projections
 
 bc.coast.albers <- st_transform(bc.coast, crs = st_crs(3005))
 albers.graticules <- st_graticule(bc.coast.albers)
