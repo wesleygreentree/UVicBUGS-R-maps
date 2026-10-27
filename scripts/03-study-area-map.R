@@ -1,11 +1,8 @@
 ## Study area map
 
-# this script is broken into three pieces
+# this script is broken into two pieces
 # 1. Simple study area map
-# 2. Adding bathymetry and topography
-# 3. Add rockfish data (learn how to add polygons and points)
-# 4. Making study area maps in another projection, and how to crop maps
-# easily when the projection is in metres
+# 2. Add rockfish data (learn how to add polygons and points)
 
 # load packages
 library(sf)
@@ -14,7 +11,7 @@ library(ggspatial)
 library(patchwork)
 
 # define custom plot themes 
-# kudos to Dominique Maucieri, PhD student at UVic 
+# kudos to Dr. Dominique Maucieri, former PhD student at UVic 
 # https://dominiquemaucieri.com/stats_code.html
 
 theme_map <- function () {
@@ -42,15 +39,9 @@ theme_inset <- function () {
 bc.coast <- read_sf("data/bc-coast.shp")
 st_crs(bc.coast) # WGS 1984 (EPSG 4326)
 
-
 ## 1. Simple study area map, including inset
 study.area <- ggplot() +
   geom_sf(data = bc.coast) +
-  
-  annotate(geom = "rect",
-           xmin = -123.4, xmax = -123.1, ymin = 48.4, ymax = 48.75,
-           fill = "transparent", colour = "black",
-           linetype = "dashed") +
   
   # label water bodies: 
   # \n indicates a line break, which we reduce the size of with lineheight = 0
@@ -87,7 +78,8 @@ study.area <- ggplot() +
                          height = unit(0.9, "cm"), width = unit(0.6, "cm"),
                          which_north = "true") +
   
-  coord_sf(xlim = c(-124.5, -122.5), ylim = c(48, 49.5)) +
+  coord_sf(xlim = c(-124.5, -122.5), ylim = c(48, 49.5),
+           expand = FALSE) +
   scale_x_continuous(breaks = c(-122.5, -123, -123.5, -124, -124.5)) +
   scale_y_continuous(breaks = c(48, 48.5, 49, 49.5)) +
   
@@ -96,8 +88,11 @@ study.area
 
 # inset
 inset <- ggplot() +
-  geom_sf(data = bc.coast, linewidth = 0.04) + # decrease linewidth from default
+  geom_sf(data = bc.coast, linewidth = 0.04) + 
+  # decrease linewidth from default, so that the black outline around land masses
+  # isn't too large for the small inset
   
+  # label the main map area
   annotate(geom = "rect", 
            xmin = -124.5, xmax = -122.5, ymin = 48, ymax = 49.5,
            fill = "transparent", colour = "black") +
@@ -123,22 +118,27 @@ inset <- ggplot() +
   theme_inset()
 inset
 
+insetplot::get_bbox_features(bbox2)
+
+0.62 * 1 / 1.4
+
+
 # add inset to the main study area map
-study.area + inset_element(inset,
-                           left = 0, bottom = 0.610, right = 0.4, top = 1,
-                           align_to = "panel")
-# when left = 0, top = 1: there is a slight gap between the left and top
-# edge of the inset and the larger map behind it. Setting left = -0.01 and
-# top = 1.01 aligns edges nicely (takes trial and error, view the saved version
-# when trying to figure out appropriate position)
+# Using coord_sf makes it difficult to fit the inset map exactly in the
+# corner of the map. So a bit of trial and error is needed.
+# Good places to start for an inset map in the top left corner are:
+# left = 0, bottom = 0.6, right = 0.4, top = 1
+# It is fine to stick with the first map you make, or feel free to try to 
+# align the inset map exactly how you want it.
+study.area + inset_element(inset, left = -0.01, bottom = 0.620,
+  right = 0.393, top = 1.00, align_to = "panel")
 
 # leaving it as left = 0 and top = 1 is perfectly acceptable, as well! 
-
 ggsave("figures/study-area-with-inset.PNG", 
        width = 17, height = 17, units = "cm",
        background = "white", dpi = 300)
 
-## 3. add rockfish conservation areas and use BC Albers
+## 2. add rockfish conservation areas and use BC Albers
 rca <- read_sf("data-raw/rca-shapefile/rockfish_102001.shp")
 st_crs(rca) # in EPSG 102001, Canada Albers Equal Area Conic
 
